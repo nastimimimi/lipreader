@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+processed/
+processed_v2/
+processed_mp/
+data/
+
+models/*.pt
+models/*.keras
+checkpoints/
+runs/
+
+.DS_Store
