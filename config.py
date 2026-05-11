@@ -13,7 +13,7 @@ CKPT_DIR    = os.path.join(BASE_DIR, "checkpoints")
 LOG_DIR     = os.path.join(BASE_DIR, "runs")
 
 # ──────────────────────────── КЛАССЫ ────────────────────────────
-CLASSES     = ["bye", "da", "exit", "hello", "net", "on", "stop"]
+CLASSES     = ["Пока", "Да", "Уйди", "Привет", "Нет", "Включи", "Стоп"]
 NUM_CLASSES = len(CLASSES)
 CLASS_TO_IDX = {c: i for i, c in enumerate(CLASSES)}
 IDX_TO_CLASS = {i: c for c, i in CLASS_TO_IDX.items()}
