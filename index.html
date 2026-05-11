@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LipRead AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:      #f0f2f8;
+    --card:    #ffffff;
+    --border:  #e2e6f0;
+    --text:    #1a1d2e;
+    --muted:   #8b90a8;
+    --accent1: #c850c0;
+    --accent2: #ff6b9d;
+    --grad:    linear-gradient(135deg, var(--accent1), var(--accent2));
+    --radius:  18px;
+    --shadow:  0 4px 24px rgba(0,0,0,0.07);
+  }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex; flex-direction: column;
+    align-items: center;
+    padding: 40px 20px 60px;
+  }
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background:
+      radial-gradient(ellipse 60% 40% at 20% 10%, rgba(200,80,192,.10) 0%, transparent 70%),
+      radial-gradient(ellipse 50% 40% at 80% 90%, rgba(255,107,157,.10) 0%, transparent 70%);
+    pointer-events: none; z-index: 0;
+  }
+  .wrap { position: relative; z-index: 1; width: 100%; max-width: 1040px; }
+
+  header { text-align: center; margin-bottom: 40px; }
+  .logo {
+    display: inline-flex; align-items: center; gap: 10px;
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(2rem, 5vw, 3rem); font-weight: 800;
+    background: var(--grad);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text; margin-bottom: 10px;
+  }
+  .subtitle { color: var(--muted); font-size: 1rem; font-weight: 300; }
+
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  @media (max-width: 680px) { .grid { grid-template-columns: 1fr; } }
+
+  .card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 28px; box-shadow: var(--shadow);
+  }
+  .card-title {
+    font-family: 'Syne', sans-serif; font-size: 1.1rem; font-weight: 700;
+    margin-bottom: 20px; display: flex; align-items: center; gap: 8px;
+  }
+
+  .video-box {
+    position: relative; width: 100%; aspect-ratio: 4/3;
+    background: #f5f6fb; border: 1px solid var(--border);
+    border-radius: 12px; overflow: hidden; margin-bottom: 18px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #preview {
+    width: 100%; height: 100%; object-fit: cover;
+    display: none; transform: scaleX(-1);
+  }
+  .placeholder { display: flex; flex-direction: column; align-items: center; gap: 12px; color: var(--muted); }
+  .placeholder svg { opacity: 0.35; }
+  .placeholder span { font-size: 0.9rem; }
+
+  .rec-badge {
+    position: absolute; top: 12px; right: 12px;
+    background: #ff3b5c; color: #fff;
+    font-size: 0.75rem; font-weight: 600;
+    padding: 4px 10px; border-radius: 20px;
+    display: none; align-items: center; gap: 6px;
+    animation: pulse 1s infinite;
+  }
+  .rec-dot { width: 7px; height: 7px; border-radius: 50%; background: #fff; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+
+  .btn {
+    width: 100%; padding: 16px; border: none; border-radius: 12px;
+    font-family: 'Syne', sans-serif; font-size: 1rem; font-weight: 600;
+    cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px;
+    transition: transform .15s, box-shadow .15s, opacity .15s;
+  }
+  .btn:active { transform: scale(.97); }
+  .btn-primary { background: var(--grad); color: #fff; box-shadow: 0 4px 20px rgba(200,80,192,.30); }
+  .btn-primary:hover { box-shadow: 0 6px 28px rgba(200,80,192,.45); }
+  .btn-danger { background: linear-gradient(135deg,#ff3b5c,#ff6b3b); color:#fff; box-shadow: 0 4px 20px rgba(255,59,92,.30); display:none; }
+  .btn-send { background: var(--grad); color:#fff; box-shadow: 0 4px 20px rgba(200,80,192,.25); margin-top:12px; display:none; opacity:.6; }
+  .btn-send.ready { opacity: 1; }
+
+  /* ── Результаты ── */
+  .result-box {
+    min-height: 280px; background: #f8f6fc;
+    border: 1px solid var(--border); border-radius: 12px;
+    padding: 24px; display: flex; align-items: center; justify-content: center;
+  }
+  .result-empty { text-align:center; color:var(--muted); font-size:.95rem; line-height:1.7; }
+  .result-list { width: 100%; }
+
+  .result-item {
+    display: flex; align-items: center; gap: 14px;
+    padding: 14px 0; border-bottom: 1px solid var(--border);
+  }
+  .result-item:last-child { border-bottom: none; }
+  .result-rank { font-family:'Syne',sans-serif; font-size:.8rem; font-weight:700; color:var(--muted); width:24px; flex-shrink:0; }
+  .result-word { font-family:'Syne',sans-serif; font-size:1.4rem; font-weight:700; flex:1; }
+  .result-item.top .result-word {
+    background: var(--grad); -webkit-background-clip:text;
+    -webkit-text-fill-color:transparent; background-clip:text; font-size:1.8rem;
+  }
+  .result-bar-wrap { flex: 2; }
+  .result-bar-bg { height:8px; border-radius:99px; background:var(--border); overflow:hidden; }
+  .result-bar-fill { height:100%; border-radius:99px; background:var(--grad); transition:width .6s cubic-bezier(.22,1,.36,1); }
+  .result-item:not(.top) .result-bar-fill { background: #d0d4e8; }
+  .result-pct { font-size:.9rem; font-weight:500; color:var(--muted); width:40px; text-align:right; }
+  .result-item.top .result-pct { color:var(--accent1); font-weight:600; }
+
+  /* ── Голосование ── */
+  .vote-section {
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+    display: none;
+  }
+  .vote-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 0.9rem; font-weight: 700;
+    color: var(--muted); margin-bottom: 14px;
+    text-align: center; letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+  .vote-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+  }
+  .vote-btn {
+    padding: 10px 6px;
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    background: var(--card);
+    font-family: 'Syne', sans-serif;
+    font-size: 0.9rem; font-weight: 600;
+    cursor: pointer;
+    transition: all .15s;
+    color: var(--text);
+  }
+  .vote-btn:hover {
+    border-color: var(--accent1);
+    color: var(--accent1);
+    background: #fdf5ff;
+    transform: translateY(-2px);
+  }
+  .vote-btn.selected {
+    background: var(--grad);
+    color: #fff;
+    border-color: transparent;
+    box-shadow: 0 4px 14px rgba(200,80,192,.35);
+  }
+  .vote-btn.wrong {
+    border-color: #ff3b5c;
+    color: #ff3b5c;
+    background: #fff5f6;
+  }
+
+  /* ── Статус сохранения ── */
+  .save-status {
+    margin-top: 12px;
+    text-align: center;
+    font-size: 0.85rem;
+    color: var(--muted);
+    min-height: 22px;
+    transition: color .3s;
+  }
+  .save-status.ok  { color: #38a169; }
+  .save-status.err { color: #e53e3e; }
+
+  /* ── Счётчик датасета ── */
+  .dataset-counter {
+    margin-top: 28px;
+    padding: 16px 20px;
+    background: #f8f6fc;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    font-size: 0.85rem;
+  }
+  .dataset-counter-title {
+    font-family: 'Syne', sans-serif; font-weight: 700;
+    margin-bottom: 12px; color: var(--muted);
+    text-transform: uppercase; font-size: 0.78rem; letter-spacing: .05em;
+  }
+  .counter-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; }
+  .counter-item { text-align: center; }
+  .counter-word { font-family:'Syne',sans-serif; font-weight:700; font-size:.95rem; }
+  .counter-num  { font-size:.8rem; color:var(--muted); margin-top:2px; }
+
+  .spinner {
+    width:40px; height:40px;
+    border:3px solid var(--border); border-top-color:var(--accent1);
+    border-radius:50%; animation:spin .8s linear infinite; display:none;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .error-msg { color:#e53e3e; font-size:.9rem; text-align:center; display:none; }
+
+  footer { margin-top:32px; font-size:.82rem; color:var(--muted); text-align:center; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="logo"><span>📹</span> LipRead AI</div>
+    <p class="subtitle">Записывайте видео и Помогайте Настюшке🥰</p>
+  </header>
+
+  <div class="grid">
+
+    <!-- ── Камера ── -->
+    <div class="card">
+      <div class="card-title">🎬 Камера</div>
+      <div class="video-box">
+        <div class="placeholder" id="placeholder">
+          <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4">
+            <path d="M23 7l-7 5 7 5V7z"/>
+            <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+          </svg>
+          <span>Загрузка камеры…</span>
+        </div>
+        <video id="preview" autoplay muted playsinline></video>
+        <div class="rec-badge" id="recBadge">
+          <div class="rec-dot"></div> REC
+        </div>
+      </div>
+
+      <button class="btn btn-primary" id="btnStart">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3" fill="currentColor"/>
+        </svg>
+        Начать запись
+      </button>
+      <button class="btn btn-danger" id="btnStop">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <rect x="3" y="3" width="18" height="18" rx="2"/>
+        </svg>
+        Остановить
+      </button>
+      <button class="btn btn-send" id="btnSend">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <line x1="22" y1="2" x2="11" y2="13"/>
+          <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+        </svg>
+        Распознать
+      </button>
+    </div>
+
+    <!-- ── Результат ── -->
+    <div class="card">
+      <div class="card-title">📝 Результат расшифровки</div>
+
+      <div class="result-box" id="resultBox">
+        <div class="result-empty" id="resultEmpty">
+          Запишите видео и нажмите «Распознать»<br>чтобы увидеть результат
+        </div>
+        <div class="spinner" id="spinner"></div>
+        <div class="result-list" id="resultList" style="display:none"></div>
+        <div class="error-msg" id="errorMsg"></div>
+      </div>
+
+      <!-- Голосование -->
+      <div class="vote-section" id="voteSection">
+        <div class="vote-title">✋ Что вы на самом деле сказали?</div>
+        <div class="vote-grid" id="voteGrid"></div>
+        <div class="save-status" id="saveStatus"></div>
+      </div>
+
+      <!-- Счётчик датасета -->
+      <div class="dataset-counter" id="datasetCounter" style="display:none">
+        <div class="dataset-counter-title">📦 Собрано видео для обучения</div>
+        <div class="counter-grid" id="counterGrid"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <footer>ℹ️ Распознаёт слова: Пока · Да · Уйди · Привет · Нет · Включи · Стоп</footer>
+</div>
+
+<script>
+const preview     = document.getElementById('preview');
+const placeholder = document.getElementById('placeholder');
+const recBadge    = document.getElementById('recBadge');
+const btnStart    = document.getElementById('btnStart');
+const btnStop     = document.getElementById('btnStop');
+const btnSend     = document.getElementById('btnSend');
+const spinner     = document.getElementById('spinner');
+const resultEmpty = document.getElementById('resultEmpty');
+const resultList  = document.getElementById('resultList');
+const errorMsg    = document.getElementById('errorMsg');
+const voteSection = document.getElementById('voteSection');
+const voteGrid    = document.getElementById('voteGrid');
+const saveStatus  = document.getElementById('saveStatus');
+const counterGrid = document.getElementById('counterGrid');
+const datasetCounter = document.getElementById('datasetCounter');
+
+let stream = null, recorder = null, chunks = [], blob = null;
+let lastVideoId = null;  // id сохранённого видео на сервере
+
+// ── Камера ────────────────────────────────────────────────────
+async function initCamera() {
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+    preview.srcObject = stream;
+    preview.style.display = 'block';
+    placeholder.style.display = 'none';
+  } catch(e) {
+    placeholder.querySelector('span').textContent = 'Нет доступа к камере';
+  }
+}
+initCamera();
+loadCounter();
+
+// ── Запись ────────────────────────────────────────────────────
+btnStart.addEventListener('click', () => {
+  if (!stream) return;
+  chunks = []; blob = null; lastVideoId = null;
+  showState('empty');
+  btnSend.style.display = 'none';
+  voteSection.style.display = 'none';
+  saveStatus.textContent = '';
+
+  const mimeType = MediaRecorder.isTypeSupported('video/mp4') ? 'video/mp4'
+    : MediaRecorder.isTypeSupported('video/webm;codecs=vp9') ? 'video/webm;codecs=vp9'
+    : 'video/webm';
+
+  recorder = new MediaRecorder(stream, { mimeType });
+  recorder.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+  recorder.onstop = () => {
+    blob = new Blob(chunks, { type: mimeType });
+    btnSend.style.display = 'flex';
+    btnSend.classList.add('ready');
+  };
+
+  recorder.start();
+  btnStart.style.display = 'none';
+  btnStop.style.display  = 'flex';
+  recBadge.style.display = 'flex';
+});
+
+btnStop.addEventListener('click', () => {
+  recorder?.stop();
+  btnStop.style.display  = 'none';
+  btnStart.style.display = 'flex';
+  recBadge.style.display = 'none';
+});
+
+// ── Отправка и распознавание ──────────────────────────────────
+btnSend.addEventListener('click', async () => {
+  if (!blob) return;
+  showState('loading');
+  voteSection.style.display = 'none';
+  btnSend.classList.remove('ready');
+
+  const ext  = blob.type.includes('mp4') ? 'mp4' : 'webm';
+  const form = new FormData();
+  form.append('video', blob, `recording.${ext}`);
+
+  try {
+    const res  = await fetch('/predict', { method: 'POST', body: form });
+    const data = await res.json();
+    if (!res.ok || data.error) { showError(data.error || 'Ошибка сервера'); return; }
+
+    lastVideoId = data.video_id;  // сервер вернул id сохранённого видео
+    showResults(data.results);
+    showVoting(data.results[0].word);
+  } catch(e) {
+    showError('Нет связи с сервером');
+  } finally {
+    btnSend.classList.add('ready');
+  }
+});
+
+// ── Голосование ───────────────────────────────────────────────
+const CLASSES = ['Пока','Да','Уйди','Привет','Нет','Включи','Стоп'];
+
+function showVoting(predictedWord) {
+  voteGrid.innerHTML = '';
+  CLASSES.forEach(word => {
+    const btn = document.createElement('button');
+    btn.className = 'vote-btn' + (word === predictedWord ? ' selected' : '');
+    btn.textContent = word;
+    btn.addEventListener('click', () => submitVote(word, btn, predictedWord));
+    voteGrid.appendChild(btn);
+  });
+  voteSection.style.display = 'block';
+  saveStatus.textContent = 'Нажмите на слово которое вы произнесли';
+  saveStatus.className = 'save-status';
+}
+
+async function submitVote(trueWord, btn, predictedWord) {
+  if (!lastVideoId) return;
+
+  // Визуально
+  document.querySelectorAll('.vote-btn').forEach(b => {
+    b.classList.remove('selected', 'wrong');
+  });
+  btn.classList.add('selected');
+
+  saveStatus.textContent = 'Сохраняем…';
+  saveStatus.className = 'save-status';
+
+  try {
+    const res  = await fetch('/label', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ video_id: lastVideoId, label: trueWord })
+    });
+    const data = await res.json();
+
+    if (data.ok) {
+      saveStatus.textContent = `✓ Сохранено как «${trueWord}» — спасибо!`;
+      saveStatus.className = 'save-status ok';
+      loadCounter();  // обновляем счётчик
+    } else {
+      saveStatus.textContent = '⚠ Не удалось сохранить';
+      saveStatus.className = 'save-status err';
+    }
+  } catch(e) {
+    saveStatus.textContent = '⚠ Ошибка соединения';
+    saveStatus.className = 'save-status err';
+  }
+}
+
+// ── Счётчик датасета ──────────────────────────────────────────
+async function loadCounter() {
+  try {
+    const res  = await fetch('/stats');
+    const data = await res.json();
+    if (!data.counts) return;
+
+    counterGrid.innerHTML = '';
+    CLASSES.forEach(word => {
+      const n    = data.counts[word] || 0;
+      const item = document.createElement('div');
+      item.className = 'counter-item';
+      item.innerHTML = `<div class="counter-word">${word}</div><div class="counter-num">${n} видео</div>`;
+      counterGrid.appendChild(item);
+    });
+    datasetCounter.style.display = 'block';
+  } catch(e) {}
+}
+
+// ── Отображение ───────────────────────────────────────────────
+function showState(state) {
+  resultEmpty.style.display = 'none';
+  spinner.style.display     = 'none';
+  resultList.style.display  = 'none';
+  errorMsg.style.display    = 'none';
+  if (state === 'empty')   resultEmpty.style.display = 'flex';
+  if (state === 'loading') spinner.style.display     = 'block';
+  if (state === 'results') resultList.style.display  = 'block';
+  if (state === 'error')   errorMsg.style.display    = 'block';
+}
+
+function showError(msg) {
+  errorMsg.textContent = '⚠️ ' + msg;
+  showState('error');
+}
+
+function showResults(results) {
+  resultList.innerHTML = '';
+  results.forEach((r, i) => {
+    const pct  = Math.round(r.confidence * 100);
+    const item = document.createElement('div');
+    item.className = 'result-item' + (i === 0 ? ' top' : '');
+    item.innerHTML = `
+      <div class="result-rank">#${i+1}</div>
+      <div class="result-word">${r.word}</div>
+      <div class="result-bar-wrap">
+        <div class="result-bar-bg">
+          <div class="result-bar-fill" style="width:0%" data-pct="${pct}"></div>
+        </div>
+      </div>
+      <div class="result-pct">${pct}%</div>`;
+    resultList.appendChild(item);
+  });
+  showState('results');
+  requestAnimationFrame(() => {
+    document.querySelectorAll('.result-bar-fill').forEach(el => {
+      el.style.width = el.dataset.pct + '%';
+    });
+  });
+}
+</script>
+</body>
+</html>
