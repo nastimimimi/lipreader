@@ -1,37 +1,45 @@
 # 👄 LipReader
 
-Нейросеть для чтения по губам — классификация 7 команд:
+A neural network for lip reading — classifying 7 spoken commands from video:
+
 `bye · da · exit · hello · net · on · stop`
 
-## Архитектура
+Built with Conv3D + BiLSTM architecture and MediaPipe for lip region extraction.
+Inspired by Aksenov et al. (2022) *"Visual Analysis Method for Driver's Face"*.
+
+---
+
+## Architecture
 
 ```
-Видео (.mp4)
+Video (.mp4)
     ↓
-MediaPipe Face Mesh  →  область губ 112×112 (grayscale)
+MediaPipe Face Mesh  →  lip region 112×112 (grayscale)
     ↓
 3× ConvBlock3D (Conv3D → BN → ReLU → MaxPool3D)
     ↓
-AdaptiveAvgPool (пространственное усреднение)
+AdaptiveAvgPool (spatial averaging)
     ↓
-BiLSTM × 2 слоя (512 нейронов)
+BiLSTM × 2 layers (512 neurons)
     ↓
 Dropout → FC(7) → Softmax
 ```
 
-Вдохновлено: Аксёнов et al. (2022) «Метод визуального анализа лица водителя»
+---
 
-## Быстрый старт
+## Quick Start
 
-### 1. Установка зависимостей
+### 1. Install dependencies
+
 ```bash
 pip install -r requirements.txt
 ```
 
-### 2. Структура данных
+### 2. Data structure
+
 ```
 data/
-├── bye/      ← ~50 видео .mp4
+├── bye/      ← ~50 .mp4 videos per class
 ├── da/
 ├── exit/
 ├── hello/
@@ -40,76 +48,111 @@ data/
 └── stop/
 ```
 
-### 3. Препроцессинг (извлечение губ)
+### 3. Preprocessing
+
+Extract lip regions from all videos:
+
 ```bash
 python -m src.preprocess
 ```
-Рядом с каждым `.mp4` появится `.npy` файл (32 кадра губ, нормализованных).
 
-Принудительная перезапись:
+A `.npy` file (32 normalised lip frames) will be created next to each `.mp4`.
+To force reprocess existing files:
+
 ```bash
 python -m src.preprocess --force
 ```
 
-### 4. Обучение
+### 4. Training
+
 ```bash
 python -m src.train
 ```
 
-Параметры:
+Custom parameters:
+
 ```bash
 python -m src.train --epochs 80 --batch 8 --lr 1e-3 --mixup 0.4
 ```
 
-Мониторинг в TensorBoard:
+Monitor training in TensorBoard:
+
 ```bash
 tensorboard --logdir runs/
 ```
 
-### 5. Оценка модели
+### 5. Evaluate
+
 ```bash
 python -m src.evaluate
 ```
-Выводит точность по классам + confusion matrix (`models/confusion_matrix.png`).
 
-### 6. Инференс на видео
+Outputs per-class accuracy and a confusion matrix saved to `models/confusion_matrix.png`.
+
+### 6. Inference
+
+Run prediction on a single video:
+
 ```bash
 python predict.py path/to/video.mp4
+```
+
+Show top-3 predictions:
+
+```bash
 python predict.py path/to/video.mp4 --top3
 ```
 
-## Конфигурация
+---
 
-Все гиперпараметры — в `config.py`:
+## Configuration
 
-| Параметр           | Значение | Описание                          |
-|--------------------|----------|-----------------------------------|
-| `SEQUENCE_LENGTH`  | 32       | Кадров на видео                   |
-| `FRAME_W/H`        | 112      | Размер кадра губ                  |
-| `BATCH_SIZE`       | 8        | Размер батча                      |
-| `NUM_EPOCHS`       | 80       | Максимум эпох                     |
-| `LEARNING_RATE`    | 1e-3     | Начальный LR                      |
-| `MIXUP_ALPHA`      | 0.4      | Сила MixUp аугментации            |
-| `LABEL_SMOOTHING`  | 0.1      | Сглаживание меток                 |
-| `LSTM_HIDDEN`      | 256      | Нейронов в BiLSTM                 |
-| `EARLY_STOP_PATIENCE` | 12    | Эпох без улучшения до остановки   |
+All hyperparameters are defined in `config.py`:
 
-## Структура проекта
+| Parameter              | Value | Description                            |
+|------------------------|-------|----------------------------------------|
+| `SEQUENCE_LENGTH`      | 32    | Frames per video                       |
+| `FRAME_W/H`            | 112   | Lip frame size (px)                    |
+| `BATCH_SIZE`           | 8     | Batch size                             |
+| `NUM_EPOCHS`           | 80    | Maximum training epochs                |
+| `LEARNING_RATE`        | 1e-3  | Initial learning rate                  |
+| `MIXUP_ALPHA`          | 0.4   | MixUp augmentation strength            |
+| `LABEL_SMOOTHING`      | 0.1   | Label smoothing factor                 |
+| `LSTM_HIDDEN`          | 256   | Neurons per BiLSTM layer               |
+| `EARLY_STOP_PATIENCE`  | 12    | Epochs without improvement before stop |
+
+---
+
+## Project Structure
 
 ```
 lipreader/
-├── config.py          # все гиперпараметры
-├── predict.py         # инференс на одном видео
+├── config.py           # all hyperparameters
+├── predict.py          # single video inference
 ├── requirements.txt
 ├── src/
-│   ├── preprocess.py  # MediaPipe: видео → .npy
-│   ├── dataset.py     # PyTorch Dataset / DataLoader
-│   ├── model.py       # Conv3D + BiLSTM
-│   ├── train.py       # цикл обучения
-│   └── evaluate.py    # метрики + confusion matrix
-├── models/            # сохранённые веса
+│   ├── preprocess.py   # MediaPipe: video → .npy
+│   ├── dataset.py      # PyTorch Dataset / DataLoader
+│   ├── model.py        # Conv3D + BiLSTM definition
+│   ├── train.py        # training loop
+│   └── evaluate.py     # metrics + confusion matrix
+├── models/
 │   ├── best_model.pt
 │   └── lipreader_final.pt
-├── checkpoints/       # чекпоинты во время обучения
-└── runs/              # TensorBoard логи
+├── checkpoints/        # training checkpoints
+└── runs/               # TensorBoard logs
 ```
+
+---
+
+## Requirements
+
+- Python 3.9+
+- PyTorch 2.0+
+- MediaPipe
+- OpenCV
+- NumPy
+
+---
+
+*Made by Nastya Baranova · Odessa, Ukraine*
